@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import logging
 import os
@@ -176,10 +177,10 @@ async def cmd_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     for i in range(1, count + 1):
         try:
-            link = create_checkout_link(username, package_id)
+            link = await asyncio.to_thread(create_checkout_link, username, package_id)
             lines.append(f"{i}. {link}")
             success += 1
-            time.sleep(0.35)
+            await asyncio.sleep(0.35)
         except Exception as e:
             log.exception("Failed on link %s", i)
             lines.append(f"{i}. ОШИБКА: {e}")
@@ -190,6 +191,10 @@ async def cmd_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Готово. Успешно: {success}/{count}")
 
 def main():
+    # Fix for Python 3.14 where get_event_loop() no longer auto-creates a loop
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("links", cmd_links))
