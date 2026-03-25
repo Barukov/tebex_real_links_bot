@@ -35,8 +35,10 @@ for name, value in {
     if not value:
         raise RuntimeError(f"Missing env: {name}")
 
+
 def is_admin(user_id: int) -> bool:
     return (not ADMIN_IDS) or (user_id in ADMIN_IDS)
+
 
 def auth_headers() -> Dict[str, str]:
     token = base64.b64encode(
@@ -48,17 +50,20 @@ def auth_headers() -> Dict[str, str]:
         "Content-Type": "application/json",
     }
 
+
 def tebex_post(path: str, payload: Dict) -> Dict:
     url = f"{BASE_URL}{path}"
     r = requests.post(url, headers=auth_headers(), json=payload, timeout=30)
     r.raise_for_status()
     return r.json() if r.text.strip() else {}
 
+
 def tebex_get(path: str) -> Dict:
     url = f"{BASE_URL}{path}"
     r = requests.get(url, headers=auth_headers(), timeout=30)
     r.raise_for_status()
     return r.json()
+
 
 def create_checkout_link(username: str, created_by: int, package_id: str) -> str:
     basket_payload = {
@@ -72,31 +77,50 @@ def create_checkout_link(username: str, created_by: int, package_id: str) -> str
         },
     }
 
-    basket = tebex_post(f"/accounts/{TEBEX_PUBLIC_TOKEN}/baskets", basket_payload).get("data", {})
+    basket = tebex_post(
+        f"/accounts/{TEBEX_PUBLIC_TOKEN}/baskets",
+        basket_payload,
+    ).get("data", {})
+
     basket_ident = basket.get("ident")
     if not basket_ident:
         raise RuntimeError("Tebex did not return basket ident")
 
-    tebex_post(f"/baskets/{basket_ident}/packages", {"package_id": str(package_id), "quantity": 1})
-    basket_info = tebex_get(f"/accounts/{TEBEX_PUBLIC_TOKEN}/baskets/{basket_ident}").get("data", {})
+    tebex_post(
+        f"/baskets/{basket_ident}/packages",
+        {"package_id": str(package_id), "quantity": 1},
+    )
+
+    basket_info = tebex_get(
+        f"/accounts/{TEBEX_PUBLIC_TOKEN}/baskets/{basket_ident}"
+    ).get("data", {})
+
     link = (((basket_info.get("links") or {}).get("checkout")) or "").strip()
     if not link:
         raise RuntimeError("Tebex did not return checkout link")
+
+    if link.endswith("/"):
+        link = link + "payment"
+    else:
+        link = link + "/payment"
+
     return link
+
 
 def split_chunks(lines, max_len=3500):
     out = []
     current = ""
     for line in lines:
-        candidate = current + line + "\n"
+        candidate = current + line + "\\n"
         if len(candidate) > max_len and current:
             out.append(current.rstrip())
-            current = line + "\n"
+            current = line + "\\n"
         else:
             current = candidate
     if current:
         out.append(current.rstrip())
     return out
+
 
 def pick_package(price: str) -> str:
     if price == "170":
@@ -105,17 +129,19 @@ def pick_package(price: str) -> str:
         return PACKAGE_250
     raise ValueError("Только 170 или 250")
 
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user or not is_admin(update.effective_user.id):
         return
     await update.message.reply_text(
-        "Бот работает.\n\n"
-        "Команда:\n"
-        "/links <количество> <цена> <ник>\n\n"
-        "Примеры:\n"
-        "/links 10 170 Steve123\n"
+        "Бот работает.\\n\\n"
+        "Команда:\\n"
+        "/links <количество> <цена> <ник>\\n\\n"
+        "Примеры:\\n"
+        "/links 10 170 Steve123\\n"
         "/links 5 250 AlexPvP"
     )
+
 
 async def cmd_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user or not is_admin(update.effective_user.id):
@@ -123,9 +149,9 @@ async def cmd_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if len(context.args) < 3:
         await update.message.reply_text(
-            "Используй: /links <количество> <цена> <ник>\n"
-            "Примеры:\n"
-            "/links 10 170 Steve123\n"
+            "Используй: /links <количество> <цена> <ник>\\n"
+            "Примеры:\\n"
+            "/links 10 170 Steve123\\n"
             "/links 5 250 AlexPvP"
         )
         return
@@ -153,14 +179,21 @@ async def cmd_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(str(e))
         return
 
-    await update.message.reply_text(f"Генерирую {count} ссылок по {price} EUR для ника {username}...")
+    await update.message.reply_text(
+        f"Генерирую {count} ссылок по {price} EUR для ника {username}..."
+    )
 
     lines = [f"Ник: {username}", f"Цена: {price} EUR", f"Количество: {count}", ""]
     success = 0
 
     for i in range(1, count + 1):
         try:
-            link = await asyncio.to_thread(create_checkout_link, username, update.effective_user.id, package_id)
+            link = await asyncio.to_thread(
+                create_checkout_link,
+                username,
+                update.effective_user.id,
+                package_id,
+            )
             lines.append(f"{i}. {link}")
             success += 1
             await asyncio.sleep(0.35)
@@ -173,6 +206,7 @@ async def cmd_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"Готово. Успешно: {success}/{count}")
 
+
 async def main():
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", cmd_start))
@@ -182,6 +216,7 @@ async def main():
     await app.start()
     await app.updater.start_polling()
     await asyncio.Event().wait()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
