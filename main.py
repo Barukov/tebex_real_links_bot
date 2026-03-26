@@ -20,8 +20,10 @@ ADMIN_IDS = {int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.
 TEBEX_PUBLIC_TOKEN = os.getenv("TEBEX_PUBLIC_TOKEN", "").strip()
 TEBEX_PRIVATE_KEY = os.getenv("TEBEX_PRIVATE_KEY", "").strip()
 TEBEX_STORE_IDENTIFIER = os.getenv("TEBEX_STORE_IDENTIFIER", "").strip()
+
 PACKAGE_170 = os.getenv("PACKAGE_170", "").strip()
 PACKAGE_250 = os.getenv("PACKAGE_250", "").strip()
+PACKAGE_480 = os.getenv("PACKAGE_480", "").strip()
 
 BASE_URL = "https://headless.tebex.io/api"
 
@@ -32,6 +34,7 @@ for name, value in {
     "TEBEX_STORE_IDENTIFIER": TEBEX_STORE_IDENTIFIER,
     "PACKAGE_170": PACKAGE_170,
     "PACKAGE_250": PACKAGE_250,
+    "PACKAGE_480": PACKAGE_480,
 }.items():
     if not value:
         raise RuntimeError(f"Missing env: {name}")
@@ -118,7 +121,9 @@ def pick_package(price: str) -> str:
         return PACKAGE_170
     if price == "250":
         return PACKAGE_250
-    raise ValueError("Только 170 или 250")
+    if price == "480":
+        return PACKAGE_480
+    raise ValueError("Только 170, 250 или 480")
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_user or not is_admin(update.effective_user.id):
@@ -129,7 +134,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/links <количество> <цена> <ник>\n\n"
         "Примеры:\n"
         "/links 10 170 Steve123\n"
-        "/links 5 250 AlexPvP"
+        "/links 5 250 AlexPvP\n"
+        "/links 5 480 MegaUser"
     )
 
 async def cmd_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -141,7 +147,8 @@ async def cmd_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Используй: /links <количество> <цена> <ник>\n"
             "Примеры:\n"
             "/links 10 170 Steve123\n"
-            "/links 5 250 AlexPvP"
+            "/links 5 250 AlexPvP\n"
+            "/links 5 480 MegaUser"
         )
         return
 
@@ -191,7 +198,6 @@ async def cmd_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"Готово. Успешно: {success}/{count}")
 
 def main():
-    # Fix for Python 3.14 where get_event_loop() no longer auto-creates a loop
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
 
